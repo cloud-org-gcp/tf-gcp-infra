@@ -47,3 +47,19 @@ variable "custom_image_name" {
   description = "The name of the custom image to use for the compute instance"
   type        = string
 }
+
+
+variable "db_name" {
+  description = "Database name"
+  type        = string
+}
+
+variable "db_user" {
+  description = "Database user"
+  type        = string
+}
+
+variable "db_password" {
+  type        = string
+  description = "The password for the database user"
+}
