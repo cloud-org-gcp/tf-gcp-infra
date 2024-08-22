@@ -70,6 +70,7 @@ resource "google_sql_user" "webapp_user" {
   name     = var.db_user
   instance = google_sql_database_instance.cloudsql_instance.name
   password = var.db_password
+  deletion_policy = "ABANDON"
 }
 
 resource "google_compute_route" "default_route" {
@@ -117,12 +118,18 @@ resource "google_compute_firewall" "allow_sql_access" {
   source_ranges = [google_compute_subnetwork.subnet_webapp.ip_cidr_range]
 }
 
+# Create the service account
+resource "google_service_account" "webapp_service_account" {
+  account_id   = var.account_id
+  display_name = var.display_name 
+}
+
 # Create the Compute Engine instance
 resource "google_compute_instance" "webapp_instance" {
   name         = "webapp-instance"
   machine_type = "e2-medium"
   zone         = var.zone
-
+  allow_stopping_for_update = true 
   boot_disk {
     initialize_params {
       image = "projects/${var.project}/global/images/${var.custom_image_name}"
@@ -139,6 +146,12 @@ resource "google_compute_instance" "webapp_instance" {
       # This block is needed to assign an external IP to the instance
     }
   }
+
+  service_account {
+    email  = google_service_account.webapp_service_account.email
+    scopes = ["https://www.googleapis.com/auth/cloud-platform"]
+  }
+
   metadata = {
     DB_USER     = var.db_user
     DB_PASSWORD = var.db_password
@@ -146,4 +159,35 @@ resource "google_compute_instance" "webapp_instance" {
     DB_NAME     = var.db_name
   }
   metadata_startup_script = file("${path.module}/startup.sh")
+}
+
+resource "google_dns_record_set" "webapp_a_record" {
+  name         = var.dns_name
+  type         = "A"
+  ttl          = 300
+  managed_zone = var.dns_managed_zone
+
+  rrdatas = [
+    google_compute_instance.webapp_instance.network_interface[0].access_config[0].nat_ip,
+  ]
+}
+
+# Bind Logging Admin IAM role to the service account
+resource "google_project_iam_binding" "logging_admin_binding" {
+  project = var.project
+  role    = "roles/logging.admin"
+
+  members = [
+    "serviceAccount:${google_service_account.webapp_service_account.email}",
+  ]
+}
+
+# Bind Monitoring Metric Writer IAM role to the service account
+resource "google_project_iam_binding" "monitoring_metric_writer_binding" {
+  project = var.project
+  role    = "roles/monitoring.metricWriter"
+
+  members = [
+    "serviceAccount:${google_service_account.webapp_service_account.email}",
+  ]
 }
