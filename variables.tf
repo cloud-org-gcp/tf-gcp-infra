@@ -63,3 +63,23 @@ variable "db_password" {
   type        = string
   description = "The password for the database user"
 }
+
+variable "dns_name" {
+  description = "The DNS name for the application"
+  type        = string
+}
+
+variable "dns_managed_zone" {
+  description = "The name of the DNS managed zone"
+  type        = string
+}
+
+variable "account_id" {
+  description = "The ID for the service account"
+  type        = string
+}
+
+variable "display_name" {
+  description = "The display name for the service account"
+  type        = string
+}
